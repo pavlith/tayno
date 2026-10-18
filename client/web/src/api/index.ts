@@ -1,7 +1,8 @@
 import { DefaultService, OpenAPI } from "@/api/generated";
 import type { Error as ApiError } from "@/api/generated";
 
-OpenAPI.BASE = (import.meta.env.VITE_API_URL?.trim() || "/api").replace(/\/+$/, "");
+// During Vite development, use the same-origin proxy rather than a direct cross-origin request.
+OpenAPI.BASE = (import.meta.env.DEV ? "/api" : import.meta.env.VITE_API_URL?.trim() || "/api").replace(/\/+$/, "");
 
 // The generated client includes error bodies in its success unions. Reject these
 // centrally so callers receive only successful response data.

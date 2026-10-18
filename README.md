@@ -42,8 +42,8 @@ to the sync server. Restart the sync server after changing `.env`.
 
 The web client reads `VITE_API_URL` from env files in the repository root.
 Use `VITE_API_URL=/api` in `.env` for a production build served by the Go client,
-and `VITE_API_URL=http://localhost:8081/api` in `.env.development` for local
-development. Without a value, the default is `/api` on the current origin.
+For local development, the browser always uses `/api` through the Vite
+proxy to the Go client on port 8081, ignoring `VITE_API_URL` in dev mode. Without a value, the default is `/api` on the current origin.
 The URL must point to the Go client API, including `/api`.
 Restart Vite after changing env files; production changes require a rebuild.
 Only variables prefixed with `VITE_` are exposed to browser code; these values
