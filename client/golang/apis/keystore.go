@@ -1,0 +1,177 @@
+package apis
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+
+	"myst/client/golang/apis/generated"
+	"myst/client/golang/core"
+)
+
+func (s *Server) CreateKeystore(c *gin.Context) {
+	sid := sessionId(c)
+
+	var req generated.CreateKeystoreRequest
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		Error(c, http.StatusBadRequest)
+		return
+	}
+
+	k, err := s.app.CreateKeystore(sid, req.Name)
+	if errors.Is(err, core.ErrInvalidKeystoreName) {
+		Error(c, http.StatusBadRequest)
+		return
+	} else if err != nil {
+		log.Error(err)
+		Error(c, http.StatusInternalServerError)
+		return
+	}
+
+	c.JSON(http.StatusCreated, keystoreToJSON(k))
+}
+
+func (s *Server) Keystore(c *gin.Context) {
+	sid := sessionId(c)
+	keystoreId := c.Param("keystoreId")
+
+	k, err := s.app.Keystore(sid, keystoreId)
+	// if errors.Is(err, keystoreservice.ErrAuthenticationRequired) {
+	//	Error(c, rest.StatusForbidden, err)
+	//	return
+	// } else if errors.Is(err, keystoreservice.ErrAuthenticationFailed) {
+	//	Error(c, rest.StatusForbidden, err)
+	//	return
+	// }
+	if err != nil {
+		log.Error(err)
+		Error(c, http.StatusInternalServerError)
+		return
+	}
+
+	c.JSON(http.StatusOK, keystoreToJSON(k))
+}
+
+func (s *Server) DeleteKeystore(c *gin.Context) {
+	sid := sessionId(c)
+	keystoreId := c.Param("keystoreId")
+
+	err := s.app.DeleteKeystore(sid, keystoreId)
+	if err != nil {
+		log.Error(err)
+		Error(c, http.StatusInternalServerError)
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (s *Server) Keystores(c *gin.Context) {
+	sid := sessionId(c)
+
+	ks, err := s.app.Keystores(sid)
+	if errors.Is(err, core.ErrInitializationRequired) {
+		Error(c, http.StatusUnauthorized)
+		return
+	} else if errors.Is(err, core.ErrAuthenticationRequired) {
+		Error(c, http.StatusUnauthorized)
+		return
+	} else if err != nil {
+		log.Error(err)
+		Error(c, http.StatusInternalServerError)
+		return
+	}
+
+	keystores := generated.Keystores{}
+
+	for _, k := range ks {
+		keystores = append(
+			keystores, keystoreToJSON(k),
+		)
+	}
+
+	c.JSON(http.StatusOK, keystores)
+}
+
+func (s *Server) CreateEntry(c *gin.Context) {
+	sid := sessionId(c)
+	keystoreId := c.Param("keystoreId")
+
+	var req generated.CreateEntryRequest
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		Error(c, http.StatusBadRequest)
+		return
+	}
+
+	e, err := s.app.CreateEntry(
+		sid,
+		keystoreId,
+		req.Website,
+		req.Username,
+		req.Password,
+		req.Notes,
+	)
+	if err != nil {
+		log.Error(err)
+		Error(c, http.StatusInternalServerError)
+		return
+	}
+
+	c.JSON(http.StatusCreated, generated.Entry{
+		Id:       e.Id,
+		Website:  e.Website,
+		Username: e.Username,
+		Password: e.Password,
+		Notes:    e.Notes,
+	})
+}
+
+func (s *Server) UpdateEntry(c *gin.Context) {
+	sid := sessionId(c)
+	keystoreId := c.Param("keystoreId")
+	entryId := c.Param("entryId")
+
+	var req generated.UpdateEntryRequest
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		Error(c, http.StatusBadRequest)
+		return
+	}
+
+	e, err := s.app.UpdateEntry(sid, keystoreId, entryId,
+		core.UpdateEntryOptions{
+			Password: req.Password, Notes: req.Notes,
+		},
+	)
+	if err != nil {
+		log.Error(err)
+		Error(c, http.StatusInternalServerError)
+		return
+	}
+
+	c.JSON(http.StatusOK, generated.Entry{
+		Id:       e.Id,
+		Website:  e.Website,
+		Username: e.Username,
+		Password: e.Password,
+		Notes:    e.Notes,
+	})
+}
+
+func (s *Server) DeleteEntry(c *gin.Context) {
+	sid := sessionId(c)
+	keystoreId := c.Param("keystoreId")
+	entryId := c.Param("entryId")
+
+	err := s.app.DeleteEntry(sid, keystoreId, entryId)
+	if err != nil {
+		log.Error(err)
+		Error(c, http.StatusInternalServerError)
+		return
+	}
+
+	c.Status(http.StatusOK)
+}

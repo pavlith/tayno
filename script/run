@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+go build -o ./tmp/server ./cmd/server
+exec ./tmp/server "$@"
