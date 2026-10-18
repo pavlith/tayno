@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
@@ -53,31 +55,23 @@ func NewServer(app core.Application, ui fs.FS) *Server {
 	r.Use(recoveryMiddleware)
 	r.Use(loggerMiddleware)
 	r.NoRoute(noRouteMiddleware("/", embedFolder(ui, "static")))
-	r.Use(
-		cors.New(
-			cors.Options{
-				AllowOriginFunc: func(origin string) bool {
-					return true
-				},
-				AllowedHeaders: []string{"*"},
-				AllowedOrigins: []string{
-					"http://localhost:80",
-					"http://localhost:8082",
-					"http://localhost:9092",
-				},
-				// // TODO allow more methods (DELETE?)
-				AllowedMethods: []string{http.MethodHead, http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete},
-				// // TODO expose ratelimiting headers
-				// ExposedHeaders: []string{},
-				// // TODO check if we can disable this on release mode so that no
-				// // authorization tokens are passed on to the frontend.
-				// // No harm, but no need either.
-				// // Required to pass authentication headers on development environment
-				// AllowCredentials: true,
-				Debug: false, // too verbose, only enable for testing CORS
-			},
-		),
-	)
+	// Cross-origin access is restricted to explicitly trusted web origins.
+	// Vite development uses a same-origin proxy by default.
+	origins := []string{"http://localhost:8082", "http://127.0.0.1:8082"}
+	if configured := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS")); configured != "" {
+		origins = nil
+		for _, origin := range strings.Split(configured, ",") {
+			if origin = strings.TrimSpace(origin); origin != "" {
+				origins = append(origins, origin)
+			}
+		}
+	}
+	r.Use(cors.New(cors.Options{
+		AllowedOrigins: origins,
+		AllowedHeaders: []string{"Accept", "Content-Type", "Authorization", "X-Myst-Account"},
+		AllowedMethods: []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPatch, http.MethodDelete, http.MethodOptions},
+		MaxAge: 600,
+	}))
 
 	api := r.Group("api")
 
